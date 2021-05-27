@@ -9,6 +9,8 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "DrawDebugHelpers.h"
+
 //////////////////////////////////////////////////////////////////////////
 // AGOEACharacter
 
@@ -54,7 +56,7 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 {
 	// Set up gameplay key bindings
 	check(PlayerInputComponent);
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AGOEACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AGOEACharacter::MoveForward);
@@ -136,5 +138,57 @@ void AGOEACharacter::MoveRight(float Value)
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
+	}
+}
+
+void AGOEACharacter::Climb(float Value) 
+{
+	if ((Controller != nullptr) && (Value != 0.0f))
+	{
+		// find out which way is right
+		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+		// get forward vector
+		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		//UE_LOG(LogTemp, Warning, TEXT("fwd vector %s"),Direction.ToString());
+		//AddMovementInput(Direction, Value);
+	}
+}
+
+void AGOEACharacter::Jump()
+{
+	ACharacter::Jump();
+
+	if ((Controller != nullptr))
+	{
+		// find out which way is right
+		const FVector ForwardVector = GetActorForwardVector();
+
+		// Set parameters to use line tracing
+		FHitResult Hit;
+		FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());  // false to ignore complex collisions and GetOwner() to ignore self
+
+	// Raycast out to this distance
+		GetWorld()->LineTraceSingleByObjectType(
+			OUT Hit,
+			GetActorLocation(),
+			GetActorLocation()+ForwardVector*500,
+			FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
+			TraceParams
+		);
+
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation()+ForwardVector*500, FColor::Green, false, 1, 0, 5);
+
+		// See what if anything has been hit and return what
+		AActor* ActorHit = Hit.GetActor();
+
+		if (ActorHit) {
+			UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
+			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *(Hit.ImpactPoint - GetActorLocation()).GetSafeNormal().ToString(),FVector::DotProduct((Hit.ImpactPoint - GetActorLocation()).GetSafeNormal(),Hit.ImpactNormal));
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("fwd vector %s at %s"), *ForwardVector.ToString(),*GetActorLocation().ToString());
+		//AddMovementInput(Direction, 10);
 	}
 }
