@@ -30,10 +30,11 @@ AGOEACharacter::AGOEACharacter()
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
-	GetCharacterMovement()->JumpZVelocity = 600.f;
-	GetCharacterMovement()->AirControl = 0.2f;
+	CharMovement = GetCharacterMovement();
+	CharMovement->bOrientRotationToMovement = true; // Character moves in the direction of input...	
+	CharMovement->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
+	CharMovement->JumpZVelocity = 600.f;
+	CharMovement->AirControl = 0.2f;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -58,7 +59,7 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 	// Set up gameplay key bindings
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AGOEACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Repeat, this, &AGOEACharacter::Climb);
+	//PlayerInputComponent->BindAction("Jump", IE_Repeat, this, &AGOEACharacter::CheckClimb);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &AGOEACharacter::StopJumping);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AGOEACharacter::MoveForward);
@@ -78,8 +79,19 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AGOEACharacter::OnResetVR);
+
 }
 
+void AGOEACharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!CharMovement->IsMovingOnGround() && HeldJump)
+		CheckClimb();
+	else {
+		Climbing = false;
+	}
+}
 
 void AGOEACharacter::OnResetVR()
 {
@@ -116,7 +128,7 @@ void AGOEACharacter::LookUpAtRate(float Rate)
 
 void AGOEACharacter::MoveForward(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f) && !Climbing)
 	{
 		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
@@ -130,7 +142,7 @@ void AGOEACharacter::MoveForward(float Value)
 
 void AGOEACharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) )
+	if ( (Controller != nullptr) && (Value != 0.0f) && !Climbing)
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
@@ -143,12 +155,13 @@ void AGOEACharacter::MoveRight(float Value)
 	}
 }
 
-void AGOEACharacter::Climb() 
+void AGOEACharacter::CheckClimb() 
 {
-	if ((Controller != nullptr) && Climbing)
+	if ((Controller != nullptr))
 	{
 		// find out which way is right
 		const FVector ForwardVector = GetActorForwardVector();
+		const FVector UpVector = GetActorUpVector();
 
 		// Set parameters to use line tracing
 		FHitResult Hit;
@@ -169,25 +182,27 @@ void AGOEACharacter::Climb()
 		// See what if anything has been hit and return what
 		AActor* ActorHit = Hit.GetActor();
 
-
 		if (ActorHit) {
 			FVector wallNorm = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal();
 			float fwdWallDot = FVector::DotProduct(wallNorm, Hit.ImpactNormal);
-			UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
-			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
-			if (fwdWallDot > -.9) {
-				JumpMaxHoldTime = 0;
+			if (fwdWallDot < -.9 && HeldJump) {
+				Climbing = true;
+				LaunchCharacter(UpVector * 600, true, true);
+				UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
+				UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
 			}
 			else {
-				JumpMaxHoldTime = 2;
-				
+				Climbing = false;
+				UE_LOG(LogTemp, Error, TEXT("disable aclimblasdj" ));
 			}
 		}
 		else {
-			JumpMaxHoldTime = 0;
+			Climbing = false;
+			UE_LOG(LogTemp, Error, TEXT("disable aclimblasdj"));
 		}
 
-		UE_LOG(LogTemp, Error, TEXT("Jump force time remaining: %f"), JumpForceTimeRemaining);
+		FString temp = IsJumpProvidingForce() ? "TRue" : "False";
+		UE_LOG(LogTemp, Error, TEXT("Jump force time remaining: %s"), *temp);
 		//AddMovementInput(Direction, Value);
 	}
 }
@@ -198,7 +213,7 @@ void AGOEACharacter::StopJumping()
 
 	if ((Controller != nullptr))
 	{
-		JumpMaxHoldTime = 0;
+		HeldJump = false;
 		Climbing = false;
 	}
 }
@@ -209,42 +224,6 @@ void AGOEACharacter::Jump()
 
 	if ((Controller != nullptr))
 	{
-		// find out which way is right
-		const FVector ForwardVector = GetActorForwardVector();
-
-		// Set parameters to use line tracing
-		FHitResult Hit;
-		FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());  // false to ignore complex collisions and GetOwner() to ignore self
-
-	// Raycast out to this distance
-		GetWorld()->LineTraceSingleByObjectType(
-			OUT Hit,
-			GetActorLocation(),
-			GetActorLocation()+ForwardVector*100,
-			FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
-			TraceParams
-		);
-
-		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation()+ForwardVector*100, FColor::Green, false, 1, 0, 5);
-
-		// See what if anything has been hit and return what
-		AActor* ActorHit = Hit.GetActor();
-		
-
-		if (ActorHit) {
-			FVector wallNorm = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal();
-			float fwdWallDot = FVector::DotProduct(wallNorm, Hit.ImpactNormal);
-			UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
-			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
-			if (fwdWallDot < -.9) {
-				Climbing = true;
-				JumpMaxHoldTime = 2;
-				//AGOEACharacter::Climb();
-			}
-		}
-
-
-		UE_LOG(LogTemp, Warning, TEXT("fwd vector %s at %s"), *ForwardVector.ToString(),*GetActorLocation().ToString());
-		//AddMovementInput(Direction, 10);
+		HeldJump = true;
 	}
 }
