@@ -18,6 +18,7 @@ class AGOEACharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
+
 public:
 	AGOEACharacter();
 
@@ -28,6 +29,10 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
+
+	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Climbing)
+		bool Climbing;
 
 protected:
 
@@ -41,10 +46,13 @@ protected:
 	void MoveRight(float Value);
 
 	/** Called for climbing input */
-	void Climb(float Value);
+	void Climb();
 
 	/* Called for jump input*/
 	void Jump();
+
+	/* Called for jump input*/
+	void StopJumping();
 
 	/** 
 	 * Called via input to turn at a given rate. 

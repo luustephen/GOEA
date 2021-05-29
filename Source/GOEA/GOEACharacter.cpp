@@ -16,6 +16,7 @@
 
 AGOEACharacter::AGOEACharacter()
 {
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
@@ -57,7 +58,8 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 	// Set up gameplay key bindings
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AGOEACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	PlayerInputComponent->BindAction("Jump", IE_Repeat, this, &AGOEACharacter::Climb);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &AGOEACharacter::StopJumping);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AGOEACharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AGOEACharacter::MoveRight);
@@ -141,18 +143,63 @@ void AGOEACharacter::MoveRight(float Value)
 	}
 }
 
-void AGOEACharacter::Climb(float Value) 
+void AGOEACharacter::Climb() 
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr) && Climbing)
 	{
 		// find out which way is right
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+		const FVector ForwardVector = GetActorForwardVector();
 
-		// get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		//UE_LOG(LogTemp, Warning, TEXT("fwd vector %s"),Direction.ToString());
+		// Set parameters to use line tracing
+		FHitResult Hit;
+		FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());  // false to ignore complex collisions and GetOwner() to ignore self
+
+		UE_LOG(LogTemp, Warning, TEXT("Climb climb lcimbclimlbim"));
+
+		GetWorld()->LineTraceSingleByObjectType(
+			OUT Hit,
+			GetActorLocation(),
+			GetActorLocation() + ForwardVector * 100,
+			FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
+			TraceParams
+		);
+
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + ForwardVector * 100, FColor::Green, false, 1, 0, 5);
+
+		// See what if anything has been hit and return what
+		AActor* ActorHit = Hit.GetActor();
+
+
+		if (ActorHit) {
+			FVector wallNorm = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal();
+			float fwdWallDot = FVector::DotProduct(wallNorm, Hit.ImpactNormal);
+			UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
+			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
+			if (fwdWallDot > -.9) {
+				JumpMaxHoldTime = 0;
+			}
+			else {
+				JumpMaxHoldTime = 2;
+				
+			}
+		}
+		else {
+			JumpMaxHoldTime = 0;
+		}
+
+		UE_LOG(LogTemp, Error, TEXT("Jump force time remaining: %f"), JumpForceTimeRemaining);
 		//AddMovementInput(Direction, Value);
+	}
+}
+
+void AGOEACharacter::StopJumping()
+{
+	ACharacter::StopJumping();
+
+	if ((Controller != nullptr))
+	{
+		JumpMaxHoldTime = 0;
+		Climbing = false;
 	}
 }
 
@@ -173,20 +220,29 @@ void AGOEACharacter::Jump()
 		GetWorld()->LineTraceSingleByObjectType(
 			OUT Hit,
 			GetActorLocation(),
-			GetActorLocation()+ForwardVector*500,
+			GetActorLocation()+ForwardVector*100,
 			FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
 			TraceParams
 		);
 
-		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation()+ForwardVector*500, FColor::Green, false, 1, 0, 5);
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation()+ForwardVector*100, FColor::Green, false, 1, 0, 5);
 
 		// See what if anything has been hit and return what
 		AActor* ActorHit = Hit.GetActor();
+		
 
 		if (ActorHit) {
+			FVector wallNorm = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal();
+			float fwdWallDot = FVector::DotProduct(wallNorm, Hit.ImpactNormal);
 			UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
-			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *(Hit.ImpactPoint - GetActorLocation()).GetSafeNormal().ToString(),FVector::DotProduct((Hit.ImpactPoint - GetActorLocation()).GetSafeNormal(),Hit.ImpactNormal));
+			UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
+			if (fwdWallDot < -.9) {
+				Climbing = true;
+				JumpMaxHoldTime = 2;
+				//AGOEACharacter::Climb();
+			}
 		}
+
 
 		UE_LOG(LogTemp, Warning, TEXT("fwd vector %s at %s"), *ForwardVector.ToString(),*GetActorLocation().ToString());
 		//AddMovementInput(Direction, 10);
