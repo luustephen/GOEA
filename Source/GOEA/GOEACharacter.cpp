@@ -93,6 +93,10 @@ void AGOEACharacter::Tick(float DeltaTime)
 	}
 }
 
+bool AGOEACharacter::IsClimbing() {
+	return Climbing;
+}
+
 void AGOEACharacter::OnResetVR()
 {
 	// If GOEA is added to a project via 'Add Feature' in the Unreal Editor the dependency on HeadMountedDisplay in GOEA.Build.cs is not automatically propagated
@@ -172,12 +176,12 @@ void AGOEACharacter::CheckClimb()
 		GetWorld()->LineTraceSingleByObjectType(
 			OUT Hit,
 			GetActorLocation(),
-			GetActorLocation() + ForwardVector * 100,
+			GetActorLocation() + ForwardVector * 50,
 			FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
 			TraceParams
 		);
 
-		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + ForwardVector * 100, FColor::Green, false, 1, 0, 5);
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + ForwardVector * 50, FColor::Green, false, 1, 0, 5);
 
 		// See what if anything has been hit and return what
 		AActor* ActorHit = Hit.GetActor();
