@@ -80,6 +80,9 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AGOEACharacter::OnResetVR);
 
+	InitPos = GetActorLocation();
+	InitRot = GetActorRotation();
+	UE_LOG(LogTemp, Warning, TEXT("POS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
 }
 
 void AGOEACharacter::Tick(float DeltaTime)
@@ -95,6 +98,11 @@ void AGOEACharacter::Tick(float DeltaTime)
 
 bool AGOEACharacter::IsClimbing() {
 	return Climbing;
+}
+
+void AGOEACharacter::Respawn() {
+	UE_LOG(LogTemp, Warning, TEXT("POS %s  ROT %s"),*InitPos.ToString(),*InitRot.ToString());
+	TeleportTo(InitPos,InitRot);
 }
 
 void AGOEACharacter::OnResetVR()
@@ -161,7 +169,7 @@ void AGOEACharacter::MoveRight(float Value)
 
 void AGOEACharacter::CheckClimb() 
 {
-	if ((Controller != nullptr))
+	if ((Controller != nullptr) && CharMovement->Velocity.Z > 0)
 	{
 		// find out which way is right
 		const FVector ForwardVector = GetActorForwardVector();
@@ -181,7 +189,7 @@ void AGOEACharacter::CheckClimb()
 			TraceParams
 		);
 
-		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + ForwardVector * 50, FColor::Green, false, 1, 0, 5);
+		//DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + ForwardVector * 50, FColor::Green, false, 1, 0, 5);
 
 		// See what if anything has been hit and return what
 		AActor* ActorHit = Hit.GetActor();

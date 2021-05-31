@@ -46,7 +46,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Airborne)
 		bool Climbing;
 
+	/*Respawning*/
+	UFUNCTION(BlueprintCallable, Category = Respawn)
+	void Respawn();
+
 protected:
+
+	FVector InitPos;
+	FRotator InitRot;
 
 	/** Resets HMD orientation in VR. */
 	void OnResetVR();
