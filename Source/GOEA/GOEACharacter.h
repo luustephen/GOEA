@@ -30,6 +30,10 @@ public:
 
 	bool IsClimbing();
 
+	/** Climb stamina */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+		float ClimbStamina;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -65,7 +69,7 @@ protected:
 	void MoveRight(float Value);
 
 	/** Called for climbing input */
-	void CheckClimb();
+	void CheckClimb(float DeltaTime);
 
 	/* Called for jump input*/
 	void Jump();

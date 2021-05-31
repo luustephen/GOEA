@@ -23,6 +23,7 @@ AGOEACharacter::AGOEACharacter()
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
+	ClimbStamina = 2.f;
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -80,9 +81,12 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AGOEACharacter::OnResetVR);
 
-	InitPos = GetActorLocation();
-	InitRot = GetActorRotation();
-	UE_LOG(LogTemp, Warning, TEXT("POS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
+	UE_LOG(LogTemp, Warning, TEXT("BPOS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
+	if (InitPos.IsZero() && InitRot.IsZero()) {
+		InitPos = GetActorLocation();
+		InitRot = GetActorRotation();
+	}
+	UE_LOG(LogTemp, Warning, TEXT("APOS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
 }
 
 void AGOEACharacter::Tick(float DeltaTime)
@@ -90,9 +94,10 @@ void AGOEACharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	if (!CharMovement->IsMovingOnGround() && HeldJump)
-		CheckClimb();
+		CheckClimb(DeltaTime);
 	else {
 		Climbing = false;
+		ClimbStamina = 2.f;
 	}
 }
 
@@ -101,7 +106,7 @@ bool AGOEACharacter::IsClimbing() {
 }
 
 void AGOEACharacter::Respawn() {
-	UE_LOG(LogTemp, Warning, TEXT("POS %s  ROT %s"),*InitPos.ToString(),*InitRot.ToString());
+	UE_LOG(LogTemp, Warning, TEXT("TPd to %s  ROT %s"),*InitPos.ToString(),*InitRot.ToString());
 	TeleportTo(InitPos,InitRot);
 }
 
@@ -167,9 +172,9 @@ void AGOEACharacter::MoveRight(float Value)
 	}
 }
 
-void AGOEACharacter::CheckClimb() 
+void AGOEACharacter::CheckClimb(float DeltaTime) 
 {
-	if ((Controller != nullptr) && CharMovement->Velocity.Z > 0)
+	if ((Controller != nullptr) && CharMovement->Velocity.Z > 0 && ClimbStamina > 0)
 	{
 		// find out which way is right
 		const FVector ForwardVector = GetActorForwardVector();
@@ -179,7 +184,7 @@ void AGOEACharacter::CheckClimb()
 		FHitResult Hit;
 		FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());  // false to ignore complex collisions and GetOwner() to ignore self
 
-		UE_LOG(LogTemp, Warning, TEXT("Climb climb lcimbclimlbim"));
+		UE_LOG(LogTemp, Warning, TEXT("Climb climb lcimbclimlbim %f"),ClimbStamina);
 
 		GetWorld()->LineTraceSingleByObjectType(
 			OUT Hit,
@@ -200,23 +205,16 @@ void AGOEACharacter::CheckClimb()
 			if (fwdWallDot < -.9 && HeldJump) {
 				Climbing = true;
 				LaunchCharacter(UpVector * 600, true, true);
-				UE_LOG(LogTemp, Error, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
-				UE_LOG(LogTemp, Error, TEXT("Dot line with normal is: %s --- %f"), *wallNorm.ToString(), fwdWallDot);
+				ClimbStamina -= DeltaTime;
 			}
-			else {
+			else 
 				Climbing = false;
-				UE_LOG(LogTemp, Error, TEXT("disable aclimblasdj" ));
-			}
 		}
-		else {
+		else 
 			Climbing = false;
-			UE_LOG(LogTemp, Error, TEXT("disable aclimblasdj"));
-		}
-
-		FString temp = IsJumpProvidingForce() ? "TRue" : "False";
-		UE_LOG(LogTemp, Error, TEXT("Jump force time remaining: %s"), *temp);
-		//AddMovementInput(Direction, Value);
 	}
+	else
+		Climbing = false;
 }
 
 void AGOEACharacter::StopJumping()
