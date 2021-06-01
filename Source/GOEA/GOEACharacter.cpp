@@ -81,12 +81,10 @@ void AGOEACharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInpu
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AGOEACharacter::OnResetVR);
 
-	UE_LOG(LogTemp, Warning, TEXT("BPOS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
 	if (InitPos.IsZero() && InitRot.IsZero()) {
 		InitPos = GetActorLocation();
 		InitRot = GetActorRotation();
 	}
-	UE_LOG(LogTemp, Warning, TEXT("APOS %s  ROT %s"), *InitPos.ToString(), *InitRot.ToString());
 }
 
 void AGOEACharacter::Tick(float DeltaTime)
@@ -106,7 +104,6 @@ bool AGOEACharacter::IsClimbing() {
 }
 
 void AGOEACharacter::Respawn() {
-	UE_LOG(LogTemp, Warning, TEXT("TPd to %s  ROTS %s"),*InitPos.ToString(),*InitRot.ToString());
 	TeleportTo(InitPos,InitRot,true);
 }
 
@@ -183,8 +180,6 @@ void AGOEACharacter::CheckClimb(float DeltaTime)
 		// Set parameters to use line tracing
 		FHitResult Hit;
 		FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());  // false to ignore complex collisions and GetOwner() to ignore self
-
-		UE_LOG(LogTemp, Warning, TEXT("Climb climb lcimbclimlbim %f"),ClimbStamina);
 
 		GetWorld()->LineTraceSingleByObjectType(
 			OUT Hit,
