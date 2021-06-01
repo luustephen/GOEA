@@ -106,8 +106,8 @@ bool AGOEACharacter::IsClimbing() {
 }
 
 void AGOEACharacter::Respawn() {
-	UE_LOG(LogTemp, Warning, TEXT("TPd to %s  ROT %s"),*InitPos.ToString(),*InitRot.ToString());
-	TeleportTo(InitPos,InitRot);
+	UE_LOG(LogTemp, Warning, TEXT("TPd to %s  ROTS %s"),*InitPos.ToString(),*InitRot.ToString());
+	TeleportTo(InitPos,InitRot,true);
 }
 
 void AGOEACharacter::OnResetVR()
