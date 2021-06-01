@@ -31,7 +31,7 @@ public:
 	bool IsClimbing();
 
 	/** Climb stamina */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Airborne)
 		float ClimbStamina;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
